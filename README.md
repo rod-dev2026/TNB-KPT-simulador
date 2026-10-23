@@ -81,5 +81,3 @@ Para el funcionamiento en tiempo real con el sensor inercial físico, el módulo
 ## 📄 Licencia y Protección de Autoría
 
 Este proyecto está protegido bajo la **Licencia General Pública de GNU v3.0 (GPLv3)**. Esto garantiza que cualquier uso, modificación o distribución académica de este material deba preservar la autoría original y mantenerse bajo los mismos principios de apertura de código libre.
-
-Consulta el archivo [LICENSE](https://www.google.com/search?q=LICENSE) para más detalles.
