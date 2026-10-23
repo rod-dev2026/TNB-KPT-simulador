@@ -1,5 +1,3 @@
-Aquí tienes la versión actualizada del `README.md` con las modificaciones solicitadas: sin el bloque de código C++ en la página principal y agregando la sección explicativa de los controles por teclado.
-
 ---
 
 # 🚀 TNB - Nave Espacial en Vivo (Simulador de Cálculo Vectorial)
@@ -62,7 +60,7 @@ Para el funcionamiento en tiempo real con el sensor inercial físico, el módulo
 | **SDA** | **GPIO 21** | Línea de datos I2C |
 | **SCL** | **GPIO 22** | Línea de reloj I2C |
 
-> **Nota:** El código fuente para el firmware del ESP32 se encuentra disponible dentro de la carpeta `/firmware` (o en la sección de releases) de este repositorio.
+> **Nota:** El código fuente se encuentra disponible en este repositorio.
 
 ---
 
@@ -74,7 +72,7 @@ Para el funcionamiento en tiempo real con el sensor inercial físico, el módulo
 * **Asignatura:** Cálculo Vectorial / Ciencias Básicas.
 
 
-* **Autor:** Rod Compañ (2026).
+* **Autor:** Rodrigo Compañ Sarmiento (2026).
 
 
 
