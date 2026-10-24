@@ -1,0 +1,1486 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>TNB · Frenet Flight Lab</title>
+<style>
+  :root {
+    --bg:#0b0e14; --bg-panel:rgba(16,21,31,.84); --bg-input:rgba(6,9,14,.65); --bg-hover:rgba(88,166,255,.13);
+    --fg:#e6edf3; --fg-dim:#8b949e; --fg-hint:#6e7681;
+    --border:rgba(255,255,255,.10); --border-soft:rgba(255,255,255,.06);
+    --accent:#58a6ff; --accent-2:#79c0ff;
+    --ok:#3fb950; --err:#f85149; --warn:#d29922;
+    --c-k:#f0b429; --c-t:#c297ff; --c-T:#3fb950; --c-N:#58a6ff; --c-B:#f85149;
+    --shadow:0 10px 32px rgba(0,0,0,.45);
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  body.light {
+    --bg:#eef1f6; --bg-panel:rgba(255,255,255,.88); --bg-input:rgba(255,255,255,.92); --bg-hover:rgba(9,105,218,.09);
+    --fg:#1f2328; --fg-dim:#57606a; --fg-hint:#6e7781;
+    --border:rgba(31,35,40,.15); --border-soft:rgba(31,35,40,.08);
+    --accent:#0969da; --accent-2:#0550ae;
+    --ok:#1a7f37; --err:#cf222e; --warn:#9a6700;
+    --c-k:#b7791f; --c-t:#8250df; --c-T:#1a7f37; --c-N:#0969da; --c-B:#cf222e;
+    --shadow:0 10px 32px rgba(31,35,40,.14);
+  }
+  * { box-sizing:border-box; }
+  html,body { height:100%; }
+  body { margin:0; font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    background:var(--bg); color:var(--fg); overflow:hidden; touch-action:none;
+    transition:background .3s,color .3s; font-size:13px; }
+  #canvas { position:absolute; inset:0; display:block; touch-action:none; }
+  .i { width:16px; height:16px; flex:none; }
+  button { font-family:inherit; }
+
+  /* ---------- Tarjetas ---------- */
+  .card { background:var(--bg-panel); border:1px solid var(--border); border-radius:14px;
+    box-shadow:var(--shadow); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
+    transition:background .3s,border-color .3s; }
+
+  /* ---------- Header ---------- */
+  #topbar { position:absolute; top:12px; left:12px; right:12px; height:48px; z-index:30;
+    display:flex; align-items:center; gap:10px; padding:0 8px 0 8px; }
+  .brand { display:flex; align-items:center; gap:10px; margin-right:4px; white-space:nowrap; }
+  .logo { width:26px; height:26px; border-radius:8px;
+    background:conic-gradient(from 210deg,#3fb950,#58a6ff,#f85149,#3fb950);
+    box-shadow:0 0 14px rgba(88,166,255,.45); position:relative; }
+  .logo::after { content:""; position:absolute; inset:5px; border-radius:5px; background:var(--bg); }
+  .brand b { font-size:14px; letter-spacing:.5px; }
+  .brand small { display:block; font-size:10px; color:var(--fg-dim); letter-spacing:.8px; text-transform:uppercase; margin-top:-1px; }
+  .chips { display:flex; gap:6px; align-items:center; min-width:0; }
+  .chip { display:inline-flex; align-items:center; gap:6px; font-size:11px; color:var(--fg-dim);
+    background:var(--bg-input); border:1px solid var(--border-soft); border-radius:999px;
+    padding:4px 10px; white-space:nowrap; }
+  .chip b { color:var(--fg); font-family:var(--mono); font-weight:600; }
+  .dot { width:8px; height:8px; border-radius:50%; background:var(--fg-hint); flex:none; }
+  #connChip[data-state=ok] .dot { background:var(--ok); box-shadow:0 0 8px var(--ok); }
+  #connChip[data-state=warn] .dot { background:var(--warn); box-shadow:0 0 8px var(--warn); }
+  #connChip[data-state=err] .dot { background:var(--err); box-shadow:0 0 8px var(--err); }
+  #connChip[data-state=idle] .dot { background:var(--accent); animation:blink 1s infinite; }
+  #connChip[data-state=off] .dot { background:var(--fg-hint); }
+  #connChip { color:var(--fg); }
+  @keyframes blink { 50% { opacity:.25; } }
+  .spacer { flex:1; }
+  #credits-h { text-align:right; line-height:1.3; font-size:10.5px; color:var(--fg-dim); padding-right:6px; white-space:nowrap; }
+  #credits-h .l1 { font-weight:700; color:var(--accent); }
+  .iconBtn { width:34px; height:34px; border-radius:10px; border:1px solid var(--border-soft);
+    background:var(--bg-input); color:var(--fg); display:inline-flex; align-items:center; justify-content:center;
+    cursor:pointer; transition:background .15s,border-color .15s,transform .1s; flex:none; }
+  .iconBtn:hover { background:var(--bg-hover); border-color:var(--accent); }
+  .iconBtn:active { transform:scale(.94); }
+  .iconBtn .i { width:18px; height:18px; }
+  #themeBtn .moon { display:none; }
+  body:not(.light) #themeBtn .sun { display:none; }
+  body:not(.light) #themeBtn .moon { display:block; }
+
+  /* ---------- Sidebar ---------- */
+  #sidebar { position:absolute; top:72px; left:12px; bottom:12px; width:340px; z-index:25;
+    display:flex; flex-direction:column; overflow:hidden; touch-action:pan-y;
+    transition:transform .28s cubic-bezier(.3,.8,.3,1),opacity .2s; }
+  body:not(.sb-open) #sidebar { transform:translateX(-110%); opacity:0; pointer-events:none; }
+  .tabs { display:flex; padding:6px; gap:4px; border-bottom:1px solid var(--border-soft); }
+  .tabs button { flex:1; border:none; background:transparent; color:var(--fg-dim); padding:8px 4px;
+    border-radius:9px; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center;
+    justify-content:center; gap:6px; transition:background .15s,color .15s; }
+  .tabs button:hover { background:var(--bg-hover); color:var(--fg); }
+  .tabs button.active { background:var(--accent); color:#fff; }
+  .tabBody { flex:1; overflow-y:auto; padding:12px 14px 6px; }
+  .tab { display:none; }
+  .tab.active { display:block; }
+  .sec { font-size:10.5px; color:var(--accent); text-transform:uppercase; letter-spacing:1px; font-weight:700; margin:16px 0 8px; }
+  .sec:first-child { margin-top:2px; }
+  .sbFoot { border-top:1px solid var(--border-soft); padding:8px 14px; font-size:10.5px; color:var(--fg-dim); line-height:1.4; }
+  .sbFoot b { color:var(--accent); }
+
+  .seg { display:flex; background:var(--bg-input); border:1px solid var(--border); border-radius:10px; overflow:hidden; }
+  .seg button { flex:1; padding:8px 6px; font-size:12px; font-weight:700; background:transparent; border:none;
+    color:var(--fg-dim); cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;
+    transition:background .2s,color .2s; }
+  .seg button:hover:not(:disabled) { background:var(--bg-hover); }
+  .seg button.active { background:var(--accent); color:#fff; }
+  .seg button:disabled { opacity:.4; cursor:not-allowed; }
+
+  .row { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+  .row + .row { margin-top:6px; }
+  input[type=text], select { background:var(--bg-input); color:var(--fg); border:1px solid var(--border);
+    border-radius:8px; padding:7px 9px; font-size:12px; outline:none; font-family:var(--mono); }
+  input[type=text]:focus, select:focus { border-color:var(--accent); }
+  input[type=range] { accent-color:var(--accent); cursor:pointer; }
+  .grow { flex:1; min-width:0; }
+
+  .btnSm { background:var(--bg-input); color:var(--fg); border:1px solid var(--border); border-radius:8px;
+    padding:6px 10px; font-size:11.5px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center;
+    gap:6px; transition:background .15s,border-color .15s,color .15s; }
+  .btnSm:hover { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .btnSm.primary { background:#238636; color:#fff; border-color:#2ea043; }
+  .btnSm.primary:hover { background:#2ea043; }
+  .btnSm.danger { background:#b32128; color:#fff; border-color:#c92e35; }
+  .btnSm.danger:hover { background:#c92e35; }
+  .btnSm.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .btnSm:disabled { opacity:.4; cursor:not-allowed; }
+
+  .tiles { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; }
+  .tile { background:var(--bg-input); border:1px solid var(--border-soft); border-radius:10px; padding:6px 9px; min-width:0; }
+  .tile span { display:block; font-size:9.5px; color:var(--fg-dim); text-transform:uppercase; letter-spacing:.7px; }
+  .tile b { font:600 13px var(--mono); color:var(--accent-2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block; }
+  #sensorPanel.offline { opacity:.45; filter:grayscale(.7); transition:opacity .3s,filter .3s; }
+  #sensorPanel.offline .tile b { color:var(--fg-dim); }
+
+  .sliderRow { display:flex; align-items:center; gap:10px; font-size:12px; color:var(--fg-dim); }
+  .sliderRow input { flex:1; }
+  .sliderRow b { color:var(--fg); font-family:var(--mono); min-width:34px; text-align:right; }
+
+  .sw { display:flex; align-items:center; justify-content:space-between; padding:6px 0; cursor:pointer;
+    font-size:12.5px; border-bottom:1px solid var(--border-soft); user-select:none; }
+  .sw:last-of-type { border-bottom:none; }
+  .sw input { display:none; }
+  .sw .track { width:34px; height:19px; border-radius:99px; background:var(--border); position:relative; transition:background .2s; flex:none; }
+  .sw .track::after { content:""; position:absolute; top:2px; left:2px; width:15px; height:15px; border-radius:50%;
+    background:#fff; transition:transform .2s; box-shadow:0 1px 3px rgba(0,0,0,.4); }
+  .sw input:checked + .track { background:var(--accent); }
+  .sw input:checked + .track::after { transform:translateX(15px); }
+  .legend { height:8px; border-radius:99px; margin:6px 0 2px;
+    background:linear-gradient(90deg,hsl(223 90% 55%),hsl(168 90% 52%),hsl(112 90% 52%),hsl(56 90% 55%),hsl(0 90% 55%)); }
+  .legendLbl { display:flex; justify-content:space-between; font-size:10px; color:var(--fg-dim); }
+  #fitInfo { font-size:11px; color:var(--fg-dim); font-family:var(--mono); margin-top:8px; line-height:1.4; }
+  #fitInfo.ok { color:var(--ok); } #fitInfo.err { color:var(--err); } #fitInfo.warn { color:var(--warn); }
+
+  /* ---------- Dock inferior ---------- */
+  #dock { position:absolute; left:12px; right:12px; bottom:12px; z-index:20; display:flex; flex-direction:column;
+    align-items:center; gap:10px; pointer-events:none; transition:left .28s; }
+  #dock > * { pointer-events:auto; }
+  #speedHUD { font-family:var(--mono); font-size:12px; color:var(--fg-dim); padding:5px 14px; border-radius:10px;
+    display:flex; gap:12px; align-items:center; white-space:nowrap; }
+  #speedHUD b { color:var(--fg); }
+  #speedHUD .bar { width:90px; height:5px; border-radius:99px; background:var(--border); overflow:hidden; }
+  #speedHUD .bar i { display:block; height:100%; width:0; background:linear-gradient(90deg,#3fb950,#ffe14d,#ff6b35); }
+  #speedHUD .state-cruise { color:var(--ok); font-weight:700; text-transform:uppercase; letter-spacing:1px; font-size:10.5px; display:none; }
+  #speedHUD.cruising { border-color:var(--ok); box-shadow:0 0 14px rgba(63,185,80,.35); }
+  #speedHUD.cruising .state-cruise { display:inline; }
+
+  .transport { display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:center; }
+  .btn { border:none; border-radius:14px; padding:12px 22px; font-size:13.5px; font-weight:800; letter-spacing:1.4px;
+    cursor:pointer; user-select:none; -webkit-user-select:none; -webkit-tap-highlight-color:transparent;
+    transition:transform .08s,box-shadow .08s,background .15s; display:flex; align-items:center; gap:9px; color:#fff; }
+  .btn .i { width:18px; height:18px; }
+  .btn-forward { background:linear-gradient(180deg,#ff6b35,#d94a10); box-shadow:0 5px 0 #8a2a00,0 10px 24px rgba(255,107,53,.4); }
+  .btn-forward:hover { background:linear-gradient(180deg,#ff7d4d,#e85a20); }
+  .btn-forward:active { transform:translateY(3px); box-shadow:0 2px 0 #8a2a00,0 6px 16px rgba(255,107,53,.55); }
+  .btn-forward.active { background:linear-gradient(180deg,#ffe14d,#ff8a1a); color:#2a1200;
+    box-shadow:0 0 0 2px #fff8,0 0 24px 6px rgba(255,200,60,.55),inset 0 0 8px rgba(255,255,255,.4);
+    animation:pulse 1.2s ease-in-out infinite; }
+  @keyframes pulse { 50% { filter:brightness(1.15); } }
+  .btn-stop { background:linear-gradient(180deg,#e5484d,#b32128); box-shadow:0 5px 0 #6b0d12,0 10px 24px rgba(229,72,77,.35); }
+  .btn-stop:hover { background:linear-gradient(180deg,#f15a5f,#c92e35); }
+  .btn-stop:active { transform:translateY(3px); box-shadow:0 2px 0 #6b0d12,0 6px 16px rgba(229,72,77,.5); }
+  .btn-reset { background:linear-gradient(180deg,#2b3548,#1a2230); box-shadow:0 5px 0 #0b1018,0 10px 24px rgba(88,166,255,.2); border:1px solid var(--border); }
+  .btn-reset:hover { background:linear-gradient(180deg,#3a4761,#232d3d); border-color:var(--accent); }
+  .btn-reset:active { transform:translateY(3px); box-shadow:0 2px 0 #0b1018; }
+
+  #traceBar { width:min(800px,100%); padding:10px 14px 12px; display:flex; flex-direction:column; gap:7px; }
+  .trace-header { display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--fg-dim); gap:8px; flex-wrap:wrap; }
+  .trace-header .label { color:var(--accent); font-weight:700; text-transform:uppercase; letter-spacing:1px; font-size:11px; }
+  .trace-header .index { font-family:var(--mono); color:var(--accent-2); }
+  .trace-header .grp { display:flex; gap:6px; align-items:center; }
+  #btnFollow { background:#238636; color:#fff; border:none; border-radius:8px; padding:4px 10px; font-size:11px; font-weight:700; cursor:pointer; letter-spacing:.4px; }
+  #btnFollow:hover { background:#2ea043; }
+  #btnFollow.following { background:#1a7f37; cursor:default; opacity:.65; }
+  #btnMin { width:26px; height:26px; border-radius:7px; }
+  #btnMin .i { width:14px; height:14px; transition:transform .2s; }
+  #traceBar.min #btnMin .i { transform:rotate(180deg); }
+  #traceBar.min .collapsible { display:none; }
+  #profile { width:100%; height:96px; display:block; border-radius:8px; background:var(--bg-input);
+    border:1px solid var(--border-soft); cursor:crosshair; touch-action:none; }
+  #traceSlider { width:100%; height:20px; }
+  .trace-values { display:grid; grid-template-columns:repeat(3,1fr); gap:3px 14px; font-size:11.5px; font-family:var(--mono); color:var(--fg-dim); }
+  .trace-values b { color:var(--accent-2); font-weight:600; }
+  .vec-t b { color:var(--c-T); } .vec-n b { color:var(--c-N); } .vec-b b { color:var(--c-B); }
+
+  /* ---------- Toasts / Modal ---------- */
+  #toasts { position:absolute; top:70px; right:14px; z-index:50; display:flex; flex-direction:column; gap:8px; align-items:flex-end; pointer-events:none; }
+  .toast { background:var(--bg-panel); border:1px solid var(--border); border-left:3px solid var(--accent); color:var(--fg);
+    padding:9px 14px; border-radius:10px; font-size:12px; box-shadow:var(--shadow); backdrop-filter:blur(10px);
+    opacity:0; transform:translateX(20px); transition:opacity .25s,transform .25s; max-width:320px; }
+  .toast.in { opacity:1; transform:none; }
+  .toast.ok { border-left-color:var(--ok); } .toast.err { border-left-color:var(--err); } .toast.warn { border-left-color:var(--warn); }
+  #modal { position:absolute; inset:0; z-index:60; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.45); backdrop-filter:blur(3px); }
+  #modal.open { display:flex; }
+  #modal .box { width:min(520px,92vw); max-height:86vh; overflow:auto; padding:20px 22px; }
+  #modal h2 { margin:0 0 4px; font-size:16px; }
+  #modal p { margin:0 0 12px; color:var(--fg-dim); font-size:12px; line-height:1.5; }
+  .keys { display:grid; grid-template-columns:auto 1fr; gap:6px 14px; font-size:12px; align-items:center; }
+  .kbd { display:inline-block; background:var(--bg-input); border:1px solid var(--border); border-bottom-width:2px;
+    border-radius:5px; padding:1px 7px; font-family:var(--mono); font-size:11px; font-weight:700; min-width:22px; text-align:center; }
+  .keys h4 { grid-column:1/-1; margin:10px 0 0; font-size:10.5px; color:var(--accent); text-transform:uppercase; letter-spacing:1px; }
+
+  /* ---------- Responsive ---------- */
+  @media (min-width:761px) { body.sb-open #dock { left:364px; } }
+  @media (max-width:1050px) { #credits-h { display:none; } }
+  @media (max-width:760px) {
+    #sidebar { width:min(88vw,340px); }
+    .chip.hide-m, .brand small { display:none; }
+    .btn { padding:11px 16px; font-size:12px; letter-spacing:1px; }
+    .trace-values { grid-template-columns:1fr 1fr; }
+    #profile { height:72px; }
+    #speedHUD .bar { width:50px; }
+  }
+</style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+
+<!-- Iconos -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-play" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><polygon points="6 4 20 12 6 20"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></symbol>
+    <symbol id="i-stop" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="2"/></symbol>
+    <symbol id="i-reset" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></symbol>
+    <symbol id="i-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></symbol>
+    <symbol id="i-upload" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></symbol>
+    <symbol id="i-repeat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></symbol>
+    <symbol id="i-target" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></symbol>
+    <symbol id="i-chart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></symbol>
+    <symbol id="i-fullscreen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></symbol>
+    <symbol id="i-help" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></symbol>
+    <symbol id="i-camera" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></symbol>
+    <symbol id="i-rocket" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></symbol>
+    <symbol id="i-sliders" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></symbol>
+  </defs>
+</svg>
+
+<!-- ============ HEADER ============ -->
+<header id="topbar" class="card">
+  <button class="iconBtn" id="btnMenu" title="Panel (M)"><svg class="i"><use href="#i-menu"/></svg></button>
+  <div class="brand"><span class="logo"></span><div><b>TNB</b><small>Frenet Flight Lab</small></div></div>
+  <div class="chips">
+    <span class="chip" id="connChip" data-state="idle"><i class="dot"></i><span id="status">conectando…</span></span>
+    <span class="chip hide-m">FPS <b id="fps">–</b></span>
+    <span class="chip hide-m">Puntos <b id="ptsCount">0</b></span>
+  </div>
+  <div class="spacer"></div>
+  <div id="credits-h">
+    <div class="l1">Diseñado por: Rod Compañ – 2026</div>
+    <div>TecNM – ITTUX</div>
+  </div>
+  <button class="iconBtn" id="btnShot" title="Captura PNG"><svg class="i"><use href="#i-camera"/></svg></button>
+  <button class="iconBtn" id="btnFs" title="Pantalla completa"><svg class="i"><use href="#i-fullscreen"/></svg></button>
+  <button class="iconBtn" id="btnHelp" title="Atajos (H)"><svg class="i"><use href="#i-help"/></svg></button>
+  <button class="iconBtn" id="themeBtn" title="Cambiar tema (T)">
+    <svg class="i sun"><use href="#i-sun"/></svg><svg class="i moon"><use href="#i-moon"/></svg>
+  </button>
+</header>
+
+<!-- ============ SIDEBAR ============ -->
+<aside id="sidebar" class="card">
+  <nav class="tabs">
+    <button data-tab="control" class="active"><svg class="i"><use href="#i-sliders"/></svg>Control</button>
+    <button data-tab="path"><svg class="i"><use href="#i-chart"/></svg>Trayectoria</button>
+    <button data-tab="view"><svg class="i"><use href="#i-eye"/></svg>Vista</button>
+  </nav>
+
+  <div class="tabBody">
+    <!-- CONTROL -->
+    <section class="tab active" id="tab-control">
+      <div class="sec">Modo de control</div>
+      <div class="seg" id="modeSelector">
+        <button data-mode="mpu" class="active">🎮 MPU6050</button>
+        <button data-mode="keyboard">⌨️ Teclado</button>
+      </div>
+
+      <div class="sec">Conexión ESP32</div>
+      <div class="row" id="connRow">
+        <input type="text" id="ipInput" class="grow" placeholder="IP del ESP32 (ej. 192.168.1.50)" autocomplete="off" spellcheck="false" />
+        <button class="btnSm primary" id="btnConnect">Conectar</button>
+      </div>
+
+      <div id="sensorPanel">
+        <div class="sec">Sensor en vivo</div>
+        <div class="tiles">
+          <div class="tile"><span>Roll</span><b id="roll">–</b></div>
+          <div class="tile"><span>Pitch</span><b id="pitch">–</b></div>
+          <div class="tile"><span>Yaw</span><b id="yaw">–</b></div>
+          <div class="tile"><span>κ</span><b id="kSensor">–</b></div>
+          <div class="tile"><span>R</span><b id="RSensor">–</b></div>
+          <div class="tile"><span>τ</span><b id="tSensor">–</b></div>
+        </div>
+      </div>
+
+      <div class="sec">Nave</div>
+      <div class="sliderRow">Velocidad máx.
+        <input type="range" id="maxSpeed" min="1" max="12" step="0.5" value="4"><b id="maxSpeedVal">4.0</b>
+      </div>
+    </section>
+
+    <!-- TRAYECTORIA -->
+    <section class="tab" id="tab-path">
+      <div class="sec">Archivo</div>
+      <div class="row">
+        <button class="btnSm primary" id="btnSave" title="Descargar traza en JSON"><svg class="i"><use href="#i-download"/></svg>JSON</button>
+        <button class="btnSm" id="btnCsv" title="Exportar x,y,z,κ,R,τ"><svg class="i"><use href="#i-file"/></svg>CSV</button>
+        <button class="btnSm" id="btnLoad" title="Cargar traza desde JSON"><svg class="i"><use href="#i-upload"/></svg>Cargar</button>
+        <button class="btnSm danger" id="btnClear" title="Borrar la traza"><svg class="i"><use href="#i-trash"/></svg>Limpiar</button>
+        <input type="file" id="fileInput" accept="application/json" style="display:none;" />
+      </div>
+
+      <div class="sec">Cálculo de T · N · B</div>
+      <div class="sliderRow" title="Ventana de diferencias finitas: mayor = menos ruido">Suavizado
+        <input type="range" id="smooth" min="1" max="8" step="1" value="2"><b id="smoothVal">2</b>
+      </div>
+
+      <div class="sec">Aproximación vectorial</div>
+      <div class="row">
+        <label style="display:flex;align-items:center;gap:6px;color:var(--fg-dim);font-size:12px;">Grado
+          <select id="fitDegree">
+            <option value="2">2</option><option value="3" selected>3</option><option value="4">4</option>
+            <option value="5">5</option><option value="6">6</option>
+          </select>
+        </label>
+        <button class="btnSm" id="btnFit" title="Ajustar r(t) por mínimos cuadrados (F)"><svg class="i"><use href="#i-chart"/></svg>Ajustar</button>
+      </div>
+      <div class="seg" style="margin-top:8px;">
+        <button id="btnUseReal" class="active">📐 Real</button>
+        <button id="btnUseFit" disabled>📈 Ajustada</button>
+      </div>
+      <div id="fitInfo">Ajusta cuando haya ≥ 4 puntos</div>
+
+      <div class="sec">Reproducción</div>
+      <div class="row">
+        <button class="btnSm primary" id="btnPlay" title="Reproducir (P)"><svg class="i"><use href="#i-play"/></svg><span>Play</span></button>
+        <button class="btnSm" id="btnLoop" title="Bucle (L)"><svg class="i"><use href="#i-repeat"/></svg>Bucle</button>
+        <button class="btnSm" id="btnShipFollow" title="La nave sigue el punto (N)"><svg class="i"><use href="#i-rocket"/></svg>Nave sigue</button>
+      </div>
+      <div class="sliderRow" style="margin-top:10px;">Velocidad
+        <select id="playSpeed" style="flex:1;">
+          <option value="10">0.3× (10 pts/s)</option>
+          <option value="30" selected>1× (30 pts/s)</option>
+          <option value="60">2× (60 pts/s)</option>
+          <option value="120">4× (120 pts/s)</option>
+        </select>
+      </div>
+    </section>
+
+    <!-- VISTA -->
+    <section class="tab" id="tab-view">
+      <div class="sec">Escena</div>
+      <label class="sw">Cuadrícula (G)<input type="checkbox" id="opt_grid"><span class="track"></span></label>
+      <label class="sw">Ejes del origen<input type="checkbox" id="opt_axes"><span class="track"></span></label>
+      <label class="sw">Campo de estrellas<input type="checkbox" id="opt_stars"><span class="track"></span></label>
+      <label class="sw">Cámara de persecución (C)<input type="checkbox" id="opt_chase"><span class="track"></span></label>
+
+      <div class="sec">Trayectoria</div>
+      <label class="sw">Estela de la nave<input type="checkbox" id="opt_trail"><span class="track"></span></label>
+      <label class="sw">Colorear por curvatura κ<input type="checkbox" id="opt_colorK"><span class="track"></span></label>
+      <div class="legend"></div>
+      <div class="legendLbl"><span>κ baja</span><span>κ alta</span></div>
+      <label class="sw">Curva ajustada<input type="checkbox" id="opt_fit"><span class="track"></span></label>
+
+      <div class="sec">Marcos de Frenet</div>
+      <label class="sw">Marco en la nave (sensor)<input type="checkbox" id="opt_shipFrame"><span class="track"></span></label>
+      <label class="sw">Marco en el punto seleccionado<input type="checkbox" id="opt_ptFrame"><span class="track"></span></label>
+      <label class="sw">Círculo osculador<input type="checkbox" id="opt_osc"><span class="track"></span></label>
+
+      <div class="sec">Cámara</div>
+      <div class="row">
+        <button class="btnSm" id="btnCamReset"><svg class="i"><use href="#i-target"/></svg>Restablecer cámara</button>
+        <button class="btnSm" id="btnShot2"><svg class="i"><use href="#i-camera"/></svg>Captura PNG</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="sbFoot"><b>Diseñado por: Rod Compañ – 2026</b><br>TecNM – ITTUX</div>
+</aside>
+
+<!-- ============ DOCK ============ -->
+<div id="dock">
+  <div id="speedHUD" class="card">
+    <span>velocidad <b id="spdVal">0.00</b> u/s</span>
+    <div class="bar"><i id="spdBar"></i></div>
+    <span class="state-cruise">● CRUCERO</span>
+  </div>
+
+  <div class="transport">
+    <button id="btnForward" class="btn btn-forward" title="Avanzar/detener (Espacio)"><svg class="i"><use href="#i-up"/></svg>AVANZAR</button>
+    <button id="btnStop" class="btn btn-stop" title="Detener la nave"><svg class="i"><use href="#i-stop"/></svg>DETENER</button>
+    <button id="btnReset" class="btn btn-reset" title="Volver al origen (R)"><svg class="i"><use href="#i-reset"/></svg>REINICIAR</button>
+  </div>
+
+  <div id="traceBar" class="card">
+    <div class="trace-header">
+      <span class="label">Trayectoria · Punto seleccionado</span>
+      <span class="index"><span id="traceIdx">0</span> / <span id="traceMax">0</span></span>
+      <span class="grp">
+        <button id="btnFollow" class="following" title="Ir a la posición más reciente">📍 Siguiendo</button>
+        <button id="btnMin" class="iconBtn" title="Minimizar panel"><svg class="i"><use href="#i-chevron"/></svg></button>
+      </span>
+    </div>
+    <canvas id="profile" class="collapsible"></canvas>
+    <input id="traceSlider" class="collapsible" type="range" min="0" max="0" value="0" disabled />
+    <div class="trace-values collapsible">
+      <span class="vec-t">T: <b id="TTrace">–</b></span>
+      <span class="vec-n">N: <b id="NTrace">–</b></span>
+      <span class="vec-b">B: <b id="BTrace">–</b></span>
+      <span>κ: <b id="kTrace">–</b></span>
+      <span>R: <b id="RTrace">–</b></span>
+      <span>τ: <b id="tTrace">–</b></span>
+    </div>
+  </div>
+</div>
+
+<div id="toasts"></div>
+
+<div id="modal">
+  <div class="box card">
+    <h2>Atajos y ayuda</h2>
+    <p>Arrastra para orbitar, rueda para zoom, clic derecho para desplazar. Haz clic o arrastra sobre la gráfica para moverte por la trayectoria.</p>
+    <div class="keys">
+      <h4>Vuelo (modo teclado)</h4>
+      <span><span class="kbd">←</span> <span class="kbd">A</span> / <span class="kbd">→</span> <span class="kbd">D</span></span><span>Yaw izquierda / derecha</span>
+      <span><span class="kbd">↑</span> <span class="kbd">W</span> / <span class="kbd">↓</span> <span class="kbd">S</span></span><span>Pitch arriba / abajo</span>
+      <span><span class="kbd">Q</span> / <span class="kbd">E</span></span><span>Roll izquierda / derecha</span>
+      <span><span class="kbd">Espacio</span></span><span>Avanzar / detener</span>
+      <span><span class="kbd">R</span></span><span>Reiniciar</span>
+      <h4>Análisis</h4>
+      <span><span class="kbd">F</span></span><span>Ajustar curva</span>
+      <span><span class="kbd">P</span> · <span class="kbd">L</span> · <span class="kbd">N</span></span><span>Play · Bucle · Nave sigue</span>
+      <h4>Vista</h4>
+      <span><span class="kbd">T</span></span><span>Tema claro / oscuro</span>
+      <span><span class="kbd">G</span></span><span>Cuadrícula</span>
+      <span><span class="kbd">C</span></span><span>Cámara de persecución</span>
+      <span><span class="kbd">M</span></span><span>Mostrar / ocultar panel</span>
+      <span><span class="kbd">H</span> · <span class="kbd">Esc</span></span><span>Ayuda / cerrar</span>
+    </div>
+    <div class="row" style="margin-top:16px;justify-content:flex-end;"><button class="btnSm primary" id="btnCloseHelp">Entendido</button></div>
+  </div>
+</div>
+
+<script type="importmap">
+{ "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+/* ===================== UTILIDADES ===================== */
+const $ = (id) => document.getElementById(id);
+const clamp = THREE.MathUtils.clamp;
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+};
+const fmt  = (v, d = 2) => Number.isFinite(v) ? v.toFixed(d) : '–';
+const fmtE = (v) => Number.isFinite(v) ? v.toExponential(2) : '–';
+const fmtV = (v) => `[${fmt(v.x)}, ${fmt(v.y)}, ${fmt(v.z)}]`;
+const cssVar = (n) => getComputedStyle(document.body).getPropertyValue(n).trim();
+const setIcon = (btn, id) => { const u = btn.querySelector('use'); if (u) u.setAttribute('href', '#i-' + id); };
+
+function toast(msg, type = 'info', ms = 2800) {
+  const el = document.createElement('div');
+  el.className = 'toast ' + type; el.textContent = msg;
+  $('toasts').appendChild(el);
+  requestAnimationFrame(() => el.classList.add('in'));
+  setTimeout(() => { el.classList.remove('in'); setTimeout(() => el.remove(), 300); }, ms);
+}
+function download(blob, name) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/* ===================== ESTADO GLOBAL ===================== */
+let ready = false;
+let controlMode = 'mpu';
+let followNave = true, useFit = false, sliderIndex = 0;
+let playing = false, loopPlay = false, shipFollowing = false, playSpeed = 30;
+let traceDirty = false, profDirty = true, profValid = false;
+let smoothW = 2;
+let MAX_SPEED = 4.0;
+const ACCEL = 6.0, FRICTION = 4.0;
+
+const OPT_DEFAULT = { grid:true, axes:true, trail:true, fit:true, shipFrame:true, ptFrame:true, osc:true, stars:true, colorK:true, chase:false };
+const opts = { ...OPT_DEFAULT };
+try { Object.assign(opts, JSON.parse(store.get('tnb-opts', '{}'))); } catch (e) {}
+opts.chase = false;
+
+/* ===================== TEMA / ESCENA ===================== */
+let currentTheme = store.get('tnb-theme', 'dark');
+let scene, camera, renderer, controls, gridHelper, axesHelper, originMarker, stars;
+
+const canvas = $('canvas');
+renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.1;
+
+scene = new THREE.Scene();
+const bgInit = currentTheme === 'light' ? 0xeef1f6 : 0x0b0e14;
+scene.background = new THREE.Color(bgInit);
+scene.fog = new THREE.Fog(bgInit, 40, 200);
+
+camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 3000);
+camera.position.set(4, 3, 6);
+
+controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true; controls.dampingFactor = 0.08;
+controls.minDistance = 0.5; controls.maxDistance = 800;
+controls.zoomSpeed = 1.2; controls.panSpeed = 1.2; controls.rotateSpeed = 0.8;
+
+scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+const keyLight = new THREE.DirectionalLight(0xffffff, 1.3); keyLight.position.set(5, 10, 7); scene.add(keyLight);
+const fillLight = new THREE.DirectionalLight(0x58a6ff, 0.7); fillLight.position.set(-6, -3, -5); scene.add(fillLight);
+const rimLight = new THREE.DirectionalLight(0xff6b35, 0.5); rimLight.position.set(-4, 2, 6); scene.add(rimLight);
+
+// Estrellas
+(function makeStars() {
+  const N = 1800, a = new Float32Array(N * 3);
+  for (let i = 0; i < N; i++) {
+    const r = 700 + Math.random() * 500, u = Math.random() * 2 - 1, th = Math.random() * Math.PI * 2, s = Math.sqrt(1 - u * u);
+    a[i*3] = r * s * Math.cos(th); a[i*3+1] = r * u; a[i*3+2] = r * s * Math.sin(th);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(a, 3));
+  stars = new THREE.Points(g, new THREE.PointsMaterial({ color:0xcfe3ff, size:1.6, sizeAttenuation:false, transparent:true, opacity:.7, fog:false, depthWrite:false }));
+  scene.add(stars);
+})();
+
+function applyTheme(theme) {
+  currentTheme = theme;
+  document.body.classList.toggle('light', theme === 'light');
+  store.set('tnb-theme', theme);
+  const bgHex = theme === 'light' ? 0xeef1f6 : 0x0b0e14;
+  scene.background = new THREE.Color(bgHex);
+  if (scene.fog) scene.fog.color = new THREE.Color(bgHex);
+  const gridMaj = theme === 'light' ? 0xbcc4ce : 0x3d4654;
+  const gridMin = theme === 'light' ? 0xd8dee6 : 0x252c38;
+  if (gridHelper) { scene.remove(gridHelper); gridHelper.geometry.dispose(); [].concat(gridHelper.material).forEach(m => m.dispose()); }
+  gridHelper = new THREE.GridHelper(200, 100, gridMaj, gridMin);
+  gridHelper.visible = opts.grid; scene.add(gridHelper);
+  if (axesHelper) { scene.remove(axesHelper); axesHelper.geometry.dispose(); axesHelper.material.dispose(); }
+  axesHelper = new THREE.AxesHelper(2); axesHelper.position.y = 0.01; axesHelper.visible = opts.axes; scene.add(axesHelper);
+  if (originMarker) { scene.remove(originMarker); originMarker.geometry.dispose(); originMarker.material.dispose(); }
+  originMarker = new THREE.Mesh(new THREE.ConeGeometry(0.15, 0.35, 4),
+    new THREE.MeshBasicMaterial({ color: theme === 'light' ? 0x0969da : 0x58a6ff, wireframe: true }));
+  originMarker.position.set(0, 0.18, 0); scene.add(originMarker);
+  if (stars) stars.visible = opts.stars && theme === 'dark';
+  profDirty = true;
+}
+applyTheme(currentTheme);
+
+/* ===================== NAVE ===================== */
+const shipGroup = new THREE.Group(); scene.add(shipGroup);
+const shipPosition = new THREE.Vector3(0, 0, 0);
+let shipSpeed = 0, cruising = false, currentShake = 0;
+const forwardLocal = new THREE.Vector3(1, 0, 0), forwardWorld = new THREE.Vector3();
+
+const matHull = new THREE.MeshStandardMaterial({ color:0xdfe6ef, metalness:.9, roughness:.25, emissive:0x111820, emissiveIntensity:.35 });
+const matHullDark = new THREE.MeshStandardMaterial({ color:0x2b3548, metalness:.85, roughness:.35 });
+const matAccent = new THREE.MeshStandardMaterial({ color:0xff6b35, metalness:.6, roughness:.4, emissive:0xff3300, emissiveIntensity:.5 });
+const matCockpit = new THREE.MeshStandardMaterial({ color:0x58a6ff, metalness:.3, roughness:.1, transparent:true, opacity:.6, emissive:0x1f6feb, emissiveIntensity:.7 });
+const matEngineGlow = new THREE.MeshBasicMaterial({ color:0x00e5ff, transparent:true, opacity:.9 });
+
+const fuselageGeo = new THREE.CylinderGeometry(0.16, 0.28, 1.6, 16, 1); fuselageGeo.rotateZ(-Math.PI / 2);
+const fuselage = new THREE.Mesh(fuselageGeo, matHull); fuselage.position.x = 0.1; shipGroup.add(fuselage);
+const noseGeo = new THREE.ConeGeometry(0.16, 0.45, 16); noseGeo.rotateZ(-Math.PI / 2);
+const nose = new THREE.Mesh(noseGeo, matHull); nose.position.x = 1.12; shipGroup.add(nose);
+const ringGeo = new THREE.TorusGeometry(0.17, 0.018, 8, 24); ringGeo.rotateY(Math.PI / 2);
+const ring = new THREE.Mesh(ringGeo, matAccent); ring.position.x = 0.92; shipGroup.add(ring);
+const cockpit = new THREE.Mesh(new THREE.SphereGeometry(0.19, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2), matCockpit);
+cockpit.position.set(0.55, 0.14, 0); cockpit.scale.set(1.6, 0.8, 1.0); shipGroup.add(cockpit);
+
+function makeWing(s) {
+  const sh = new THREE.Shape();
+  sh.moveTo(0, 0); sh.lineTo(0.55, 0); sh.lineTo(0.15, 0.9 * s); sh.lineTo(-0.15, 0.7 * s); sh.lineTo(-0.15, 0);
+  const g = new THREE.ExtrudeGeometry(sh, { depth: 0.045, bevelEnabled: false }); g.rotateX(-Math.PI / 2);
+  const w = new THREE.Mesh(g, matHull); w.position.set(-0.1, 0.02, 0); return w;
+}
+shipGroup.add(makeWing(+1), makeWing(-1));
+function makeWingStripe(s) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.02, 0.06), matAccent);
+  m.position.set(0.05, 0.06, 0.45 * s); m.rotation.y = s * -0.15; return m;
+}
+shipGroup.add(makeWingStripe(+1), makeWingStripe(-1));
+function makeTailFin(s) {
+  const sh = new THREE.Shape();
+  sh.moveTo(0, 0); sh.lineTo(0.35, 0); sh.lineTo(0.25, 0.32); sh.lineTo(0.05, 0.32);
+  const g = new THREE.ExtrudeGeometry(sh, { depth: 0.03, bevelEnabled: false }); g.rotateY(Math.PI / 2);
+  const f = new THREE.Mesh(g, matHullDark); f.position.set(-0.55, 0, s * 0.12); f.rotation.z = s * 0.15; return f;
+}
+shipGroup.add(makeTailFin(+1), makeTailFin(-1));
+
+const flames = [];
+function makeEngine(z) {
+  const g = new THREE.Group();
+  const bg = new THREE.CylinderGeometry(0.11, 0.13, 0.35, 14); bg.rotateZ(-Math.PI / 2);
+  g.add(new THREE.Mesh(bg, matHullDark));
+  const gg = new THREE.TorusGeometry(0.11, 0.02, 8, 20); gg.rotateY(Math.PI / 2);
+  const glow = new THREE.Mesh(gg, matEngineGlow); glow.position.x = -0.18; g.add(glow);
+  const fg = new THREE.ConeGeometry(0.09, 0.45, 10); fg.rotateZ(Math.PI / 2);
+  const flame = new THREE.Mesh(fg, new THREE.MeshBasicMaterial({ color:0xffaa33, transparent:true, opacity:.85, blending:THREE.AdditiveBlending, depthWrite:false }));
+  flame.position.x = -0.42; g.add(flame); flames.push(flame);
+  const light = new THREE.PointLight(0x00e5ff, 0.8, 1.5); light.position.x = -0.2; g.add(light);
+  g.position.set(-0.75, -0.02, z); return g;
+}
+shipGroup.add(makeEngine(+0.16), makeEngine(-0.16));
+function makeNavLight(s) {
+  const c = s > 0 ? 0xff2222 : 0x22ff44;
+  const m = new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 8), new THREE.MeshBasicMaterial({ color: c }));
+  m.position.set(0.4, 0.04, 0.85 * s);
+  const l = new THREE.PointLight(c, 0.5, 1.2); l.position.copy(m.position);
+  shipGroup.add(l); return m;
+}
+shipGroup.add(makeNavLight(+1), makeNavLight(-1));
+
+/* ===================== MARCO TNB DEL SENSOR ===================== */
+const FRENET_ANCHOR = new THREE.Group(); scene.add(FRENET_ANCHOR);
+const arrowT = new THREE.ArrowHelper(new THREE.Vector3(1,0,0), new THREE.Vector3(), 2.0, 0x3fb950, 0.32, 0.18);
+const arrowN = new THREE.ArrowHelper(new THREE.Vector3(0,1,0), new THREE.Vector3(), 2.0, 0x58a6ff, 0.32, 0.18);
+const arrowB = new THREE.ArrowHelper(new THREE.Vector3(0,0,1), new THREE.Vector3(), 2.0, 0xf85149, 0.32, 0.18);
+FRENET_ANCHOR.add(arrowT, arrowN, arrowB);
+
+const originHalo = new THREE.Mesh(new THREE.SphereGeometry(0.25, 16, 12),
+  new THREE.MeshBasicMaterial({ color:0x58a6ff, transparent:true, opacity:.25, wireframe:true }));
+scene.add(originHalo);
+
+/* ===================== TRAYECTORIA ===================== */
+const tracePoints = [];
+const TRACE_MAX = 5000, TRACE_SAMPLE_DIST = 0.05;
+
+const traceGeometry = new THREE.BufferGeometry();
+const tracePositions = new Float32Array(TRACE_MAX * 3);
+const traceColors = new Float32Array(TRACE_MAX * 3);
+traceGeometry.setAttribute('position', new THREE.BufferAttribute(tracePositions, 3));
+traceGeometry.setAttribute('color', new THREE.BufferAttribute(traceColors, 3));
+traceGeometry.setDrawRange(0, 0);
+const traceLine = new THREE.Line(traceGeometry, new THREE.LineBasicMaterial({ vertexColors:true, transparent:true, opacity:.95 }));
+traceLine.frustumCulled = false; scene.add(traceLine);
+const ORANGE = new THREE.Color(0xff8a1a);
+
+// Curva ajustada
+const fitGeometry = new THREE.BufferGeometry();
+const fitPositions = new Float32Array(600 * 3);
+fitGeometry.setAttribute('position', new THREE.BufferAttribute(fitPositions, 3));
+fitGeometry.setDrawRange(0, 0);
+const fitLine = new THREE.Line(fitGeometry, new THREE.LineDashedMaterial({ color:0x7ee787, dashSize:0.15, gapSize:0.1, transparent:true, opacity:.9 }));
+fitLine.frustumCulled = false; scene.add(fitLine);
+let fitCurve = null;
+
+// Punto seleccionado + marco + círculo osculador
+const traceMarker = new THREE.Mesh(new THREE.SphereGeometry(0.12, 16, 12),
+  new THREE.MeshStandardMaterial({ color:0xffe14d, emissive:0xffaa00, emissiveIntensity:1.0, metalness:.4, roughness:.3 }));
+traceMarker.visible = false; scene.add(traceMarker);
+
+const traceAnchor = new THREE.Group(); scene.add(traceAnchor);
+const traceArrowT = new THREE.ArrowHelper(new THREE.Vector3(1,0,0), new THREE.Vector3(), 1.8, 0x3fb950, 0.30, 0.16);
+const traceArrowN = new THREE.ArrowHelper(new THREE.Vector3(0,1,0), new THREE.Vector3(), 1.8, 0x58a6ff, 0.30, 0.16);
+const traceArrowB = new THREE.ArrowHelper(new THREE.Vector3(0,0,1), new THREE.Vector3(), 1.8, 0xf85149, 0.30, 0.16);
+traceAnchor.add(traceArrowT, traceArrowN, traceArrowB); traceAnchor.visible = false;
+
+const OSC_SEG = 96;
+const oscPos = new Float32Array((OSC_SEG + 1) * 3);
+const oscGeo = new THREE.BufferGeometry();
+oscGeo.setAttribute('position', new THREE.BufferAttribute(oscPos, 3));
+const oscLine = new THREE.Line(oscGeo, new THREE.LineBasicMaterial({ color:0xd2a8ff, transparent:true, opacity:.9 }));
+oscLine.frustumCulled = false; oscLine.visible = false; scene.add(oscLine);
+const oscCenter = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 8), new THREE.MeshBasicMaterial({ color:0xd2a8ff }));
+oscCenter.visible = false; scene.add(oscCenter);
+
+/* ===================== FRENET (núcleo numérico) ===================== */
+function frenetCore(r1x, r1y, r1z, r2x, r2y, r2z, r3x, r3y, r3z) {
+  const sp = Math.hypot(r1x, r1y, r1z);
+  if (!(sp > 1e-9)) return null;
+  const Tx = r1x / sp, Ty = r1y / sp, Tz = r1z / sp;
+  const dot = r2x * Tx + r2y * Ty + r2z * Tz;
+  let nx = r2x - dot * Tx, ny = r2y - dot * Ty, nz = r2z - dot * Tz;
+  const nl = Math.hypot(nx, ny, nz);
+  if (nl > 1e-9) { nx /= nl; ny /= nl; nz /= nl; }
+  else { // tramo recto: cualquier normal perpendicular a T
+    const ux = Math.abs(Ty) < 0.99 ? 0 : 1, uy = Math.abs(Ty) < 0.99 ? 1 : 0;
+    const d = ux * Tx + uy * Ty;
+    nx = ux - d * Tx; ny = uy - d * Ty; nz = -d * Tz;
+    const l = Math.hypot(nx, ny, nz) || 1; nx /= l; ny /= l; nz /= l;
+  }
+  const bx = Ty * nz - Tz * ny, by = Tz * nx - Tx * nz, bz = Tx * ny - Ty * nx;
+  const cx = r1y * r2z - r1z * r2y, cy = r1z * r2x - r1x * r2z, cz = r1x * r2y - r1y * r2x;
+  const d = Math.hypot(cx, cy, cz);
+  const kappa = d / (sp * sp * sp);
+  const tau = d > 1e-8 ? (cx * r3x + cy * r3y + cz * r3z) / (d * d) : 0;
+  return { Tx, Ty, Tz, Nx: nx, Ny: ny, Nz: nz, Bx: bx, By: by, Bz: bz, kappa, radius: kappa > 1e-6 ? 1 / kappa : Infinity, tau };
+}
+function wrapFrenet(c, pos) {
+  return { T: new THREE.Vector3(c.Tx, c.Ty, c.Tz), N: new THREE.Vector3(c.Nx, c.Ny, c.Nz), B: new THREE.Vector3(c.Bx, c.By, c.Bz),
+           kappa: c.kappa, radius: c.radius, tau: c.tau, position: pos };
+}
+
+// --- traza real: diferencias finitas centrales con ventana w
+function frenetCoreAt(index) {
+  const n = tracePoints.length;
+  if (n < 5) return null;
+  const w = Math.min(smoothW, Math.floor((n - 1) / 4));
+  if (w < 1) return null;
+  const i = clamp(index, 2 * w, n - 1 - 2 * w);
+  const P = tracePoints, a = P[i], p1 = P[i + w], m1 = P[i - w], p2 = P[i + 2 * w], m2 = P[i - 2 * w];
+  const w2 = w * w, w3 = w2 * w;
+  return frenetCore(
+    (p1.x - m1.x) / (2 * w), (p1.y - m1.y) / (2 * w), (p1.z - m1.z) / (2 * w),
+    (p1.x - 2 * a.x + m1.x) / w2, (p1.y - 2 * a.y + m1.y) / w2, (p1.z - 2 * a.z + m1.z) / w2,
+    (p2.x - 2 * p1.x + 2 * m1.x - m2.x) / (2 * w3), (p2.y - 2 * p1.y + 2 * m1.y - m2.y) / (2 * w3), (p2.z - 2 * p1.z + 2 * m1.z - m2.z) / (2 * w3));
+}
+function frenetAtIndex(index) {
+  const c = frenetCoreAt(index);
+  return c ? wrapFrenet(c, tracePoints[clamp(index, 0, tracePoints.length - 1)].clone()) : null;
+}
+
+// --- curva ajustada (polinomios)
+function polyEval(coef, t) { let r = 0, p = 1; for (let i = 0; i < coef.length; i++) { r += coef[i] * p; p *= t; } return r; }
+function polyDer1(coef, t) { let r = 0, p = 1; for (let i = 1; i < coef.length; i++) { r += i * coef[i] * p; p *= t; } return r; }
+function polyDer2(coef, t) { let r = 0, p = 1; for (let i = 2; i < coef.length; i++) { r += i * (i - 1) * coef[i] * p; p *= t; } return r; }
+function polyDer3(coef, t) { let r = 0, p = 1; for (let i = 3; i < coef.length; i++) { r += i * (i - 1) * (i - 2) * coef[i] * p; p *= t; } return r; }
+const fitT = (idx) => { const m = fitCurve.nPoints; return m > 1 ? clamp(idx, 0, m - 1) / (m - 1) : 0; };
+function fitPosAt(t) { return new THREE.Vector3(polyEval(fitCurve.coefX, t), polyEval(fitCurve.coefY, t), polyEval(fitCurve.coefZ, t)); }
+function computeFrenetOnFit(t) {
+  if (!fitCurve) return null;
+  const { coefX: X, coefY: Y, coefZ: Z } = fitCurve;
+  const c = frenetCore(polyDer1(X,t), polyDer1(Y,t), polyDer1(Z,t), polyDer2(X,t), polyDer2(Y,t), polyDer2(Z,t), polyDer3(X,t), polyDer3(Y,t), polyDer3(Z,t));
+  return c ? wrapFrenet(c, fitPosAt(t)) : null;
+}
+
+/* ===================== PERFIL κ(s), τ(s) + COLOR ===================== */
+const kArr = new Float32Array(TRACE_MAX), tArr = new Float32Array(TRACE_MAX);
+let kScale = 1, tScale = 1;
+const tmpCol = new THREE.Color();
+
+function percentile(arr, n, p, abs) {
+  const a = new Float32Array(n);
+  for (let i = 0; i < n; i++) a[i] = abs ? Math.abs(arr[i]) : arr[i];
+  a.sort();
+  return a[Math.min(n - 1, Math.floor(p * (n - 1)))];
+}
+function recomputeProfile() {
+  traceDirty = false;
+  const n = tracePoints.length;
+  if (n < 5) {
+    profValid = false;
+    for (let i = 0; i < n; i++) { traceColors[i*3] = ORANGE.r; traceColors[i*3+1] = ORANGE.g; traceColors[i*3+2] = ORANGE.b; }
+    traceGeometry.attributes.color.needsUpdate = true; profDirty = true; return;
+  }
+  for (let i = 0; i < n; i++) {
+    const c = frenetCoreAt(i);
+    kArr[i] = c ? c.kappa : 0; tArr[i] = c ? c.tau : 0;
+  }
+  kScale = Math.max(percentile(kArr, n, 0.97, false) * 1.15, 1e-6);
+  tScale = Math.max(percentile(tArr, n, 0.97, true) * 1.15, 1e-6);
+  for (let i = 0; i < n; i++) {
+    if (opts.colorK) {
+      const t = clamp(kArr[i] / kScale, 0, 1);
+      tmpCol.setHSL(0.62 * (1 - t), 0.9, 0.55);
+      traceColors[i*3] = tmpCol.r; traceColors[i*3+1] = tmpCol.g; traceColors[i*3+2] = tmpCol.b;
+    } else {
+      traceColors[i*3] = ORANGE.r; traceColors[i*3+1] = ORANGE.g; traceColors[i*3+2] = ORANGE.b;
+    }
+  }
+  traceGeometry.attributes.color.needsUpdate = true;
+  profValid = true; profDirty = true;
+}
+
+const prof = $('profile'), pctx = prof.getContext('2d');
+let profW = 0, profH = 0;
+function resizeProfile() {
+  const r = prof.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  profW = r.width; profH = r.height;
+  prof.width = Math.max(1, Math.round(r.width * dpr)); prof.height = Math.max(1, Math.round(r.height * dpr));
+  pctx.setTransform(dpr, 0, 0, dpr, 0, 0); profDirty = true;
+}
+new ResizeObserver(resizeProfile).observe(prof);
+
+function drawProfile() {
+  profDirty = false;
+  if (profW < 2 || profH < 2) return;
+  const W = profW, H = profH, n = tracePoints.length;
+  pctx.clearRect(0, 0, W, H);
+  const colK = cssVar('--c-k'), colT = cssVar('--c-t'), colG = cssVar('--border'), colD = cssVar('--fg-dim'), colA = cssVar('--accent');
+  pctx.font = '10px ui-monospace,Menlo,monospace';
+  if (n < 5 || !profValid) {
+    pctx.fillStyle = colD; pctx.textAlign = 'center';
+    pctx.fillText('Avanza la nave para generar el perfil κ(s) y τ(s)', W / 2, H / 2 + 3);
+    return;
+  }
+  const padL = 30, padR = 6, padT = 5, padB = 5, gap = 6;
+  const hh = (H - padT - padB - gap) / 2, plotW = W - padL - padR;
+  const x = (i) => padL + (i / (n - 1)) * plotW;
+  const stride = Math.max(1, Math.floor(n / plotW));
+
+  function series(arr, lo, hi, y0, color, label, hiTxt, zero) {
+    pctx.strokeStyle = colG; pctx.lineWidth = 1; pctx.strokeRect(padL + .5, y0 + .5, plotW, hh);
+    const y = (v) => y0 + hh - clamp((v - lo) / (hi - lo), 0, 1) * hh;
+    if (zero) { pctx.beginPath(); pctx.setLineDash([3, 3]); pctx.moveTo(padL, y(0)); pctx.lineTo(padL + plotW, y(0)); pctx.stroke(); pctx.setLineDash([]); }
+    pctx.beginPath(); pctx.strokeStyle = color; pctx.lineWidth = 1.5;
+    for (let i = 0; i < n; i += stride) { const px = x(i), py = y(arr[i]); i === 0 ? pctx.moveTo(px, py) : pctx.lineTo(px, py); }
+    pctx.stroke();
+    pctx.fillStyle = color; pctx.textAlign = 'left'; pctx.fillText(label, 4, y0 + 11);
+    pctx.fillStyle = colD; pctx.fillText(hiTxt, padL + 4, y0 + 11);
+  }
+  series(kArr, 0, kScale, padT, colK, 'κ', 'máx ' + kScale.toExponential(1), false);
+  series(tArr, -tScale, tScale, padT + hh + gap, colT, 'τ', '±' + tScale.toExponential(1), true);
+
+  const si = clamp(sliderIndex, 0, n - 1), cx = x(si);
+  pctx.strokeStyle = colA; pctx.lineWidth = 1.5; pctx.beginPath(); pctx.moveTo(cx, padT); pctx.lineTo(cx, H - padB); pctx.stroke();
+  const dotY = (v, lo, hi, y0) => y0 + hh - clamp((v - lo) / (hi - lo), 0, 1) * hh;
+  pctx.fillStyle = colK; pctx.beginPath(); pctx.arc(cx, dotY(kArr[si], 0, kScale, padT), 3.2, 0, 6.2832); pctx.fill();
+  pctx.fillStyle = colT; pctx.beginPath(); pctx.arc(cx, dotY(tArr[si], -tScale, tScale, padT + hh + gap), 3.2, 0, 6.2832); pctx.fill();
+}
+
+let seeking = false;
+function profSeek(e) {
+  const n = tracePoints.length; if (n < 2) return;
+  const r = prof.getBoundingClientRect();
+  seekTo(Math.round(clamp((e.clientX - r.left - 30) / (r.width - 36), 0, 1) * (n - 1)));
+}
+prof.addEventListener('pointerdown', (e) => { prof.setPointerCapture(e.pointerId); seeking = true; profSeek(e); });
+prof.addEventListener('pointermove', (e) => { if (seeking) profSeek(e); });
+prof.addEventListener('pointerup', () => { seeking = false; });
+prof.addEventListener('pointercancel', () => { seeking = false; });
+
+/* ===================== VISTA DEL PUNTO SELECCIONADO ===================== */
+const TRACE_IDS = ['TTrace', 'NTrace', 'BTrace', 'kTrace', 'RTrace', 'tTrace'];
+function hideTraceVisual() {
+  traceMarker.visible = false; traceAnchor.visible = false; oscLine.visible = false; oscCenter.visible = false;
+  TRACE_IDS.forEach(id => $(id).textContent = '–');
+}
+function updateOsc(f, pos) {
+  if (!opts.osc || !f || !isFinite(f.radius) || f.radius > 200) { oscLine.visible = false; oscCenter.visible = false; return; }
+  const R = f.radius, c = pos.clone().addScaledVector(f.N, R);
+  for (let k = 0; k <= OSC_SEG; k++) {
+    const th = (k / OSC_SEG) * Math.PI * 2, cs = Math.cos(th), sn = Math.sin(th);
+    oscPos[k*3]   = c.x + R * (-f.N.x * cs + f.T.x * sn);
+    oscPos[k*3+1] = c.y + R * (-f.N.y * cs + f.T.y * sn);
+    oscPos[k*3+2] = c.z + R * (-f.N.z * cs + f.T.z * sn);
+  }
+  oscGeo.attributes.position.needsUpdate = true;
+  oscLine.visible = true; oscCenter.position.copy(c); oscCenter.visible = true;
+}
+function updateTraceVisual() {
+  const n = tracePoints.length;
+  $('ptsCount').textContent = n;
+  $('traceIdx').textContent = sliderIndex;
+  $('traceMax').textContent = n > 0 ? n - 1 : 0;
+  profDirty = true;
+
+  let f = null;
+  if (useFit && fitCurve) f = computeFrenetOnFit(fitT(sliderIndex));
+  else if (n >= 5) f = frenetAtIndex(clamp(sliderIndex, 0, n - 1));
+  if (!f) { hideTraceVisual(); return; }
+
+  const pos = f.position;
+  traceMarker.position.copy(pos); traceMarker.visible = true;
+  traceAnchor.position.copy(pos); traceAnchor.visible = opts.ptFrame;
+  traceArrowT.setDirection(f.T); traceArrowN.setDirection(f.N); traceArrowB.setDirection(f.B);
+  updateOsc(f, pos);
+
+  $('TTrace').textContent = fmtV(f.T); $('NTrace').textContent = fmtV(f.N); $('BTrace').textContent = fmtV(f.B);
+  $('kTrace').textContent = fmtE(f.kappa);
+  $('RTrace').textContent = isFinite(f.radius) ? f.radius.toFixed(3) : '∞';
+  $('tTrace').textContent = fmt(f.tau, 4);
+}
+
+/* ===================== SLIDER / SEGUIR ===================== */
+const traceSlider = $('traceSlider'), btnFollow = $('btnFollow');
+function setFollow(on) {
+  followNave = on;
+  btnFollow.classList.toggle('following', on);
+  btnFollow.textContent = on ? '📍 Siguiendo' : '📍 Seguir nave';
+}
+function seekTo(i) {
+  sliderIndex = clamp(i, 0, Math.max(0, tracePoints.length - 1));
+  traceSlider.value = sliderIndex;
+  setFollow(false);
+  updateTraceVisual();
+}
+traceSlider.addEventListener('input', () => seekTo(parseInt(traceSlider.value, 10)));
+traceSlider.addEventListener('change', () => traceSlider.blur());
+btnFollow.addEventListener('click', () => {
+  setFollow(true);
+  sliderIndex = Math.max(0, tracePoints.length - 1);
+  traceSlider.value = sliderIndex; updateTraceVisual();
+});
+function updateSliderMax() {
+  const n = tracePoints.length;
+  traceSlider.disabled = n < 2;
+  traceSlider.max = Math.max(0, n - 1);
+}
+$('btnMin').addEventListener('click', () => { $('traceBar').classList.toggle('min'); setTimeout(resizeProfile, 30); });
+
+/* ===================== WEBSOCKET ===================== */
+const connRow = $('connRow'), ipInput = $('ipInput');
+let ws = null, currentIP = null, wsManuallyClosed = false, wsOpen = false, reconnectTimer = null, lastMsgAt = 0;
+
+function setConn(state, text) { $('connChip').dataset.state = state; $('status').textContent = text; }
+
+function detectarIP() {
+  const saved = store.get('espIP', '');
+  if (window.location.protocol.startsWith('http') && window.location.hostname &&
+      window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    ipInput.value = window.location.hostname;
+    return window.location.hostname;
+  }
+  if (saved) ipInput.value = saved;
+  return saved || null;
+}
+function closeSocket() {
+  clearTimeout(reconnectTimer);
+  if (ws) { ws.onopen = ws.onclose = ws.onerror = ws.onmessage = null; try { ws.close(); } catch (e) {} ws = null; }
+  wsOpen = false;
+}
+function conectar(ip) {
+  if (!ip) return;
+  currentIP = ip; closeSocket(); wsManuallyClosed = false;
+  setConn('idle', 'conectando…');
+  let sock;
+  try { sock = new WebSocket(`ws://${ip}:81`); }
+  catch (e) { setConn('err', 'bloqueado (usa http://)'); toast('El navegador bloqueó ws:// desde una página HTTPS. Abre el archivo localmente o por http.', 'err', 5000); return; }
+  ws = sock;
+  sock.onopen = () => { wsOpen = true; lastMsgAt = 0; setConn('ok', `conectado (${ip})`); };
+  sock.onerror = () => { if (!wsManuallyClosed && ws === sock) setConn('err', 'error'); };
+  sock.onclose = () => {
+    wsOpen = false;
+    if (wsManuallyClosed || ws !== sock) return;
+    setConn('idle', 'reconectando…');
+    reconnectTimer = setTimeout(() => conectar(currentIP), 2000);
+  };
+  sock.onmessage = (ev) => {
+    if (controlMode !== 'mpu') return;
+    lastMsgAt = performance.now();
+    try { updateUI(JSON.parse(ev.data)); } catch (e) { console.warn('[WS] JSON inválido:', e); }
+  };
+}
+$('btnConnect').addEventListener('click', () => {
+  const ip = ipInput.value.trim();
+  if (!ip) return toast('Escribe la IP del ESP32', 'warn');
+  store.set('espIP', ip); conectar(ip);
+});
+ipInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') $('btnConnect').click(); });
+setInterval(() => {
+  if (controlMode !== 'mpu' || !wsOpen) return;
+  const stale = performance.now() - lastMsgAt > 1500;
+  setConn(stale ? 'warn' : 'ok', stale ? 'conectado · sin datos' : `en vivo (${currentIP})`);
+}, 500);
+
+/* ===================== MODO DE CONTROL ===================== */
+let targetPitch = 0, targetYaw = 0, targetRoll = 0;
+const KB_YAW_SPEED = 1.6, KB_PITCH_SPEED = 1.4, KB_ROLL_SPEED = 2.0;
+const keys = { yawLeft:false, yawRight:false, pitchUp:false, pitchDown:false, rollLeft:false, rollRight:false };
+
+function isTyping(e) { return !!(e.target && e.target.matches && e.target.matches('input[type=text],input[type=number],select,textarea')); }
+function onKeyDown(e) {
+  if (isTyping(e)) return;
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  let handled = true;
+  switch (e.code) {
+    case 'ArrowLeft': case 'KeyA': keys.yawLeft = true; break;
+    case 'ArrowRight': case 'KeyD': keys.yawRight = true; break;
+    case 'ArrowUp': case 'KeyW': keys.pitchUp = true; break;
+    case 'ArrowDown': case 'KeyS': keys.pitchDown = true; break;
+    case 'KeyQ': keys.rollLeft = true; break;
+    case 'KeyE': keys.rollRight = true; break;
+    case 'Space': if (!e.repeat) setCruising(!cruising); break;
+    case 'KeyR': if (!e.repeat) resetShip(); break;
+    case 'KeyT': if (!e.repeat) toggleTheme(); break;
+    case 'KeyG': if (!e.repeat) toggleOpt('grid'); break;
+    case 'KeyC': if (!e.repeat) toggleOpt('chase'); break;
+    case 'KeyF': if (!e.repeat) { computeFit(); updateTraceVisual(); } break;
+    case 'KeyP': if (!e.repeat) togglePlay(); break;
+    case 'KeyL': if (!e.repeat) $('btnLoop').click(); break;
+    case 'KeyN': if (!e.repeat) $('btnShipFollow').click(); break;
+    case 'KeyM': if (!e.repeat) toggleSidebar(); break;
+    case 'KeyH': if (!e.repeat) toggleHelp(); break;
+    case 'Escape': toggleHelp(false); break;
+    default: handled = false;
+  }
+  if (handled) e.preventDefault();
+}
+function onKeyUp(e) {
+  let handled = true;
+  switch (e.code) {
+    case 'ArrowLeft': case 'KeyA': keys.yawLeft = false; break;
+    case 'ArrowRight': case 'KeyD': keys.yawRight = false; break;
+    case 'ArrowUp': case 'KeyW': keys.pitchUp = false; break;
+    case 'ArrowDown': case 'KeyS': keys.pitchDown = false; break;
+    case 'KeyQ': keys.rollLeft = false; break;
+    case 'KeyE': keys.rollRight = false; break;
+    default: handled = false;
+  }
+  if (handled && !isTyping(e)) e.preventDefault();
+}
+window.addEventListener('keydown', onKeyDown);
+window.addEventListener('keyup', onKeyUp);
+window.addEventListener('blur', () => Object.keys(keys).forEach(k => keys[k] = false));
+document.addEventListener('click', (e) => { const b = e.target.closest && e.target.closest('button'); if (b) b.blur(); });
+
+function setControlMode(mode) {
+  if (mode === controlMode) return;
+  controlMode = mode;
+  document.querySelectorAll('#modeSelector button').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+  if (mode === 'keyboard') {
+    const e = new THREE.Euler().setFromQuaternion(shipGroup.quaternion, 'YXZ');
+    targetPitch = e.x; targetYaw = e.y; targetRoll = e.z;
+    wsManuallyClosed = true; closeSocket();
+    setConn('off', 'MPU desconectado (teclado)');
+    $('sensorPanel').classList.add('offline');
+    ['roll','pitch','yaw','kSensor','RSensor','tSensor'].forEach(id => $(id).textContent = '—');
+  } else {
+    wsManuallyClosed = false;
+    $('sensorPanel').classList.remove('offline');
+    if (currentIP) conectar(currentIP); else setConn('idle', 'esperando IP…');
+  }
+  applyOpts();
+}
+document.querySelectorAll('#modeSelector button').forEach(btn => btn.addEventListener('click', () => setControlMode(btn.dataset.mode)));
+
+/* ===================== ACTUALIZAR UI DEL SENSOR ===================== */
+const tmpQ = new THREE.Quaternion(), tmpE = new THREE.Euler();
+const vT = new THREE.Vector3(), vN = new THREE.Vector3(), vB = new THREE.Vector3();
+function updateUI(d) {
+  $('roll').textContent = fmt(d.roll, 1); $('pitch').textContent = fmt(d.pitch, 1); $('yaw').textContent = fmt(d.yaw, 1);
+  $('kSensor').textContent = fmtE(d.kappa); $('RSensor').textContent = fmt(d.radius, 3); $('tSensor').textContent = fmt(d.tau, 4);
+
+  if (d.T && d.N && d.B) {
+    vT.set(d.T.x, d.T.y, d.T.z); vN.set(d.N.x, d.N.y, d.N.z); vB.set(d.B.x, d.B.y, d.B.z);
+    if (vT.lengthSq() > 0.01) arrowT.setDirection(vT.clone().normalize());
+    if (vN.lengthSq() > 0.01) arrowN.setDirection(vN.clone().normalize());
+    if (vB.lengthSq() > 0.01) arrowB.setDirection(vB.clone().normalize());
+  }
+  const accMag = Math.abs(d.ax || 0) + Math.abs(d.ay || 0) + Math.abs(d.az || 0);
+  currentShake = Math.min(0.06, accMag * 0.05);
+
+  if (controlMode === 'mpu' && !shipFollowing && Number.isFinite(d.roll + d.pitch + d.yaw)) {
+    tmpE.set(THREE.MathUtils.degToRad(d.pitch), THREE.MathUtils.degToRad(d.yaw), -THREE.MathUtils.degToRad(d.roll), 'YXZ');
+    tmpQ.setFromEuler(tmpE);
+    shipGroup.quaternion.slerp(tmpQ, 0.35);
+  }
+}
+
+/* ===================== NAVE: CONTROLES ===================== */
+const btnForward = $('btnForward'), btnStop = $('btnStop'), btnReset = $('btnReset'), hudEl = $('speedHUD');
+function setCruising(on) {
+  if (on && shipFollowing) setShipFollow(false);
+  cruising = on;
+  btnForward.classList.toggle('active', on);
+  hudEl.classList.toggle('cruising', on);
+}
+function stopShip() { setCruising(false); shipSpeed = 0; }
+function resetShip() {
+  setCruising(false); shipSpeed = 0;
+  shipPosition.set(0, 0, 0); shipGroup.position.set(0, 0, 0); shipGroup.quaternion.identity();
+  targetPitch = 0; targetYaw = 0; targetRoll = 0;
+  clearTrace();
+  resetCamera();
+  prevShipPos.set(0, 0, 0);
+}
+function clearTrace() {
+  tracePoints.length = 0;
+  traceGeometry.setDrawRange(0, 0);
+  sliderIndex = 0; traceSlider.value = 0; setFollow(true);
+  updateSliderMax(); clearFit(); hideTraceVisual();
+  setPlaying(false); setShipFollow(false);
+  traceDirty = true; profValid = false; profDirty = true;
+  $('ptsCount').textContent = '0'; $('traceIdx').textContent = '0'; $('traceMax').textContent = '0';
+}
+function resetCamera() {
+  camera.position.set(4, 3, 6); controls.target.set(0, 0, 0); controls.update();
+  if (opts.chase) { $('opt_chase').checked = false; opts.chase = false; }
+}
+btnForward.addEventListener('click', (e) => { e.preventDefault(); setCruising(!cruising); });
+btnStop.addEventListener('click',    (e) => { e.preventDefault(); stopShip(); });
+btnReset.addEventListener('click',   (e) => { e.preventDefault(); resetShip(); });
+
+$('maxSpeed').addEventListener('input', (e) => { MAX_SPEED = parseFloat(e.target.value); $('maxSpeedVal').textContent = MAX_SPEED.toFixed(1); });
+$('maxSpeed').addEventListener('change', (e) => e.target.blur());
+$('smooth').addEventListener('input', (e) => { smoothW = parseInt(e.target.value, 10); $('smoothVal').textContent = smoothW; traceDirty = true; updateTraceVisual(); });
+$('smooth').addEventListener('change', (e) => e.target.blur());
+
+/* ===================== AÑADIR PUNTOS ===================== */
+function pushTracePoint(p) {
+  const n = tracePoints.length;
+  if (n > 0 && p.distanceToSquared(tracePoints[n - 1]) < TRACE_SAMPLE_DIST * TRACE_SAMPLE_DIST) return;
+  let i;
+  if (n >= TRACE_MAX) {
+    tracePoints.shift(); tracePoints.push(p.clone());
+    tracePositions.copyWithin(0, 3); traceColors.copyWithin(0, 3);
+    i = TRACE_MAX - 1;
+    if (!followNave) { sliderIndex = Math.max(0, sliderIndex - 1); traceSlider.value = sliderIndex; }
+  } else {
+    tracePoints.push(p.clone()); i = n;
+    const pi = Math.max(0, i - 1);
+    traceColors[i*3] = traceColors[pi*3]; traceColors[i*3+1] = traceColors[pi*3+1]; traceColors[i*3+2] = traceColors[pi*3+2];
+    if (n === 0) { traceColors[0] = ORANGE.r; traceColors[1] = ORANGE.g; traceColors[2] = ORANGE.b; }
+  }
+  tracePositions[i*3] = p.x; tracePositions[i*3+1] = p.y; tracePositions[i*3+2] = p.z;
+  traceGeometry.setDrawRange(0, tracePoints.length);
+  traceGeometry.attributes.position.needsUpdate = true;
+  traceGeometry.attributes.color.needsUpdate = true;
+  traceDirty = true;
+  updateSliderMax();
+  if (followNave) { sliderIndex = tracePoints.length - 1; traceSlider.value = sliderIndex; updateTraceVisual(); }
+  else $('ptsCount').textContent = tracePoints.length;
+}
+
+/* ===================== AJUSTE POLINÓMICO ===================== */
+function gaussSolve(A, b) {
+  const n = A.length, M = A.map((row, i) => row.concat([b[i]]));
+  for (let i = 0; i < n; i++) {
+    let piv = i;
+    for (let r = i + 1; r < n; r++) if (Math.abs(M[r][i]) > Math.abs(M[piv][i])) piv = r;
+    if (piv !== i) [M[i], M[piv]] = [M[piv], M[i]];
+    const d = M[i][i];
+    if (Math.abs(d) < 1e-14) continue;
+    for (let r = 0; r < n; r++) {
+      if (r === i) continue;
+      const f = M[r][i] / d; if (f === 0) continue;
+      for (let c = i; c <= n; c++) M[r][c] -= f * M[i][c];
+    }
+  }
+  return M.map((row, i) => Math.abs(row[i]) > 1e-14 ? row[n] / row[i] : 0);
+}
+function polyFit(ts, ys, degree) {
+  const n = ts.length, d = degree + 1;
+  if (n < d) return null;
+  const VtV = Array.from({ length: d }, () => new Array(d).fill(0)), Vty = new Array(d).fill(0);
+  const pw = new Array(d);
+  for (let i = 0; i < n; i++) {
+    let p = 1; for (let j = 0; j < d; j++) { pw[j] = p; p *= ts[i]; }
+    for (let a = 0; a < d; a++) { Vty[a] += pw[a] * ys[i]; for (let b = 0; b < d; b++) VtV[a][b] += pw[a] * pw[b]; }
+  }
+  return gaussSolve(VtV, Vty);
+}
+function setFitInfo(text, cls) { const el = $('fitInfo'); el.textContent = text; el.className = cls || ''; }
+function computeFit() {
+  const n = tracePoints.length;
+  if (n < 4) { setFitInfo(`Necesitas ≥ 4 puntos (hay ${n})`, 'err'); return; }
+  const degree = parseInt($('fitDegree').value, 10);
+  const ts = [], xs = [], ys = [], zs = [];
+  for (let i = 0; i < n; i++) { ts.push(i / (n - 1)); xs.push(tracePoints[i].x); ys.push(tracePoints[i].y); zs.push(tracePoints[i].z); }
+  const coefX = polyFit(ts, xs, degree), coefY = polyFit(ts, ys, degree), coefZ = polyFit(ts, zs, degree);
+  if (!coefX || !coefY || !coefZ) { setFitInfo(`Grado ${degree} necesita ≥ ${degree + 1} puntos`, 'err'); return; }
+  fitCurve = { coefX, coefY, coefZ, tMax: 1, nPoints: n, degree };
+  let sse = 0;
+  for (let i = 0; i < n; i++) {
+    const dx = polyEval(coefX, ts[i]) - xs[i], dy = polyEval(coefY, ts[i]) - ys[i], dz = polyEval(coefZ, ts[i]) - zs[i];
+    sse += dx*dx + dy*dy + dz*dz;
+  }
+  fitCurve.rms = Math.sqrt(sse / n);
+  const M = 300;
+  for (let i = 0; i < M; i++) {
+    const t = i / (M - 1);
+    fitPositions[i*3] = polyEval(coefX, t); fitPositions[i*3+1] = polyEval(coefY, t); fitPositions[i*3+2] = polyEval(coefZ, t);
+  }
+  fitGeometry.setDrawRange(0, M); fitGeometry.attributes.position.needsUpdate = true; fitLine.computeLineDistances();
+  setFitInfo(`Grado ${degree} · ${n} puntos · RMS = ${fitCurve.rms.toExponential(2)}`, 'ok');
+  $('btnUseFit').disabled = false;
+  toast('Curva ajustada calculada', 'ok');
+}
+function setUseFit(on) {
+  useFit = on && !!fitCurve;
+  $('btnUseFit').classList.toggle('active', useFit);
+  $('btnUseReal').classList.toggle('active', !useFit);
+  updateTraceVisual();
+}
+function clearFit() {
+  fitCurve = null; fitGeometry.setDrawRange(0, 0);
+  $('btnUseFit').disabled = true; useFit = false;
+  $('btnUseReal').classList.add('active'); $('btnUseFit').classList.remove('active');
+  setFitInfo('Ajusta cuando haya ≥ 4 puntos', '');
+}
+$('btnFit').addEventListener('click', () => { computeFit(); updateTraceVisual(); });
+$('btnUseReal').addEventListener('click', () => setUseFit(false));
+$('btnUseFit').addEventListener('click', () => setUseFit(true));
+
+/* ===================== GUARDAR / CARGAR / LIMPIAR ===================== */
+$('btnSave').addEventListener('click', () => {
+  if (tracePoints.length < 2) return toast('Necesitas al menos 2 puntos', 'warn');
+  const data = { version: 1, savedAt: new Date().toISOString(),
+    points: tracePoints.map(p => ({ x: +p.x.toFixed(4), y: +p.y.toFixed(4), z: +p.z.toFixed(4) })) };
+  download(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }), `trayectoria_${Date.now()}.json`);
+  toast(`Guardados ${tracePoints.length} puntos`, 'ok');
+});
+$('btnCsv').addEventListener('click', () => {
+  const n = tracePoints.length;
+  if (n < 2) return toast('Necesitas al menos 2 puntos', 'warn');
+  recomputeProfile();
+  const lines = ['i,x,y,z,kappa,radius,tau'];
+  for (let i = 0; i < n; i++) {
+    const p = tracePoints[i], k = profValid ? kArr[i] : '', R = profValid && kArr[i] > 1e-6 ? (1 / kArr[i]).toFixed(5) : '';
+    lines.push([i, p.x.toFixed(5), p.y.toFixed(5), p.z.toFixed(5), profValid ? kArr[i].toExponential(5) : '', R, profValid ? tArr[i].toExponential(5) : ''].join(','));
+  }
+  download(new Blob([lines.join('\n')], { type: 'text/csv' }), `trayectoria_${Date.now()}.csv`);
+  toast('CSV exportado', 'ok');
+});
+const fileInput = $('fileInput');
+$('btnLoad').addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', (e) => {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      if (!data.points || !Array.isArray(data.points)) throw new Error('Formato inválido');
+      const pts = data.points.filter(p => p && Number.isFinite(p.x) && Number.isFinite(p.y) && Number.isFinite(p.z));
+      if (pts.length < 2) throw new Error('La traza no tiene puntos válidos');
+      clearTrace();
+      for (const p of pts) { tracePoints.push(new THREE.Vector3(p.x, p.y, p.z)); if (tracePoints.length >= TRACE_MAX) break; }
+      for (let i = 0; i < tracePoints.length; i++) {
+        const p = tracePoints[i];
+        tracePositions[i*3] = p.x; tracePositions[i*3+1] = p.y; tracePositions[i*3+2] = p.z;
+      }
+      traceGeometry.setDrawRange(0, tracePoints.length);
+      traceGeometry.attributes.position.needsUpdate = true;
+      updateSliderMax();
+      sliderIndex = tracePoints.length - 1; traceSlider.value = sliderIndex; setFollow(true);
+      recomputeProfile(); updateTraceVisual();
+      toast(`Cargados ${tracePoints.length} puntos` + (pts.length > TRACE_MAX ? ` (recortado a ${TRACE_MAX})` : ''), 'ok');
+    } catch (err) { toast('Error al cargar: ' + err.message, 'err', 4000); }
+  };
+  reader.readAsText(file);
+  fileInput.value = '';
+});
+$('btnClear').addEventListener('click', () => { clearTrace(); toast('Trayectoria borrada'); });
+
+/* ===================== PLAY / BUCLE / NAVE SIGUE ===================== */
+const btnPlay = $('btnPlay'), btnLoop = $('btnLoop'), btnShipFollow = $('btnShipFollow');
+function setPlaying(on) {
+  playing = on;
+  setIcon(btnPlay, on ? 'pause' : 'play');
+  btnPlay.querySelector('span').textContent = on ? 'Pausa' : 'Play';
+  btnPlay.classList.toggle('primary', !on); btnPlay.classList.toggle('active', on);
+}
+function togglePlay() {
+  if (tracePoints.length < 2) return toast('Genera una trayectoria primero', 'warn');
+  const on = !playing;
+  if (on) { setFollow(false); if (sliderIndex >= tracePoints.length - 1) sliderIndex = 0; }
+  setPlaying(on);
+}
+function setShipFollow(on) {
+  shipFollowing = on; btnShipFollow.classList.toggle('active', on);
+  if (on) { setCruising(false); shipSpeed = 0; }
+}
+btnPlay.addEventListener('click', togglePlay);
+btnLoop.addEventListener('click', () => { loopPlay = !loopPlay; btnLoop.classList.toggle('active', loopPlay); });
+btnShipFollow.addEventListener('click', () => {
+  if (!shipFollowing && tracePoints.length < 2) return toast('Genera una trayectoria primero', 'warn');
+  setShipFollow(!shipFollowing);
+});
+$('playSpeed').addEventListener('change', (e) => { playSpeed = parseFloat(e.target.value); e.target.blur(); });
+
+/* ===================== OPCIONES DE VISTA ===================== */
+const prevShipPos = new THREE.Vector3();
+function applyOpts() {
+  if (gridHelper) gridHelper.visible = opts.grid;
+  if (axesHelper) axesHelper.visible = opts.axes;
+  if (stars) stars.visible = opts.stars && currentTheme === 'dark';
+  traceLine.visible = opts.trail;
+  fitLine.visible = opts.fit;
+  FRENET_ANCHOR.visible = opts.shipFrame && controlMode === 'mpu';
+  if (!opts.ptFrame) traceAnchor.visible = false;
+}
+function setChase(on) {
+  if (on) {
+    const off = new THREE.Vector3().subVectors(shipPosition, controls.target);
+    camera.position.add(off); controls.target.copy(shipPosition);
+    prevShipPos.copy(shipPosition);
+  }
+}
+function onOptChange(k) {
+  applyOpts();
+  if (k === 'colorK') recomputeProfile();
+  if (k === 'chase') setChase(opts.chase);
+  if (k === 'ptFrame' || k === 'osc') updateTraceVisual();
+  store.set('tnb-opts', JSON.stringify(opts));
+}
+Object.keys(OPT_DEFAULT).forEach((k) => {
+  const el = $('opt_' + k); if (!el) return;
+  el.checked = !!opts[k];
+  el.addEventListener('change', () => { opts[k] = el.checked; onOptChange(k); });
+});
+function toggleOpt(k) { const el = $('opt_' + k); el.checked = !el.checked; opts[k] = el.checked; onOptChange(k); }
+
+/* ===================== UI GENERAL ===================== */
+function toggleTheme() { applyTheme(currentTheme === 'light' ? 'dark' : 'light'); }
+$('themeBtn').addEventListener('click', toggleTheme);
+function toggleSidebar(force) {
+  const open = typeof force === 'boolean' ? force : !document.body.classList.contains('sb-open');
+  document.body.classList.toggle('sb-open', open);
+}
+$('btnMenu').addEventListener('click', () => toggleSidebar());
+function toggleHelp(force) {
+  const m = $('modal'), open = typeof force === 'boolean' ? force : !m.classList.contains('open');
+  m.classList.toggle('open', open);
+}
+$('btnHelp').addEventListener('click', () => toggleHelp());
+$('btnCloseHelp').addEventListener('click', () => toggleHelp(false));
+$('modal').addEventListener('pointerdown', (e) => { if (e.target === $('modal')) toggleHelp(false); });
+
+document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.tabs button').forEach(x => x.classList.toggle('active', x === b));
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.id === 'tab-' + b.dataset.tab));
+}));
+function screenshot() {
+  renderer.render(scene, camera);
+  canvas.toBlob((blob) => { if (blob) { download(blob, `tnb_${Date.now()}.png`); toast('Captura guardada', 'ok'); } }, 'image/png');
+}
+$('btnShot').addEventListener('click', screenshot);
+$('btnShot2').addEventListener('click', screenshot);
+$('btnCamReset').addEventListener('click', resetCamera);
+$('btnFs').addEventListener('click', () => {
+  if (document.fullscreenElement) document.exitFullscreen();
+  else if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {});
+});
+
+/* ===================== BUCLE DE RENDER ===================== */
+const clock = new THREE.Clock();
+const spdEl = $('spdVal'), spdBar = $('spdBar');
+let playAccum = 0, lastProfCompute = 0, fpsCount = 0, fpsT = performance.now();
+
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime, now = performance.now();
+
+  fpsCount++;
+  if (now - fpsT > 500) { $('fps').textContent = Math.round(fpsCount * 1000 / (now - fpsT)); fpsCount = 0; fpsT = now; }
+
+  /* --- Play --- */
+  if (playing && tracePoints.length >= 2) {
+    playAccum += dt * playSpeed;
+    if (playAccum >= 1) {
+      const steps = Math.floor(playAccum); playAccum -= steps;
+      sliderIndex += steps;
+      if (sliderIndex >= tracePoints.length) {
+        if (loopPlay) sliderIndex = 0;
+        else { sliderIndex = tracePoints.length - 1; setPlaying(false); }
+      }
+      traceSlider.value = sliderIndex; updateTraceVisual();
+    }
+  }
+
+  /* --- Nave sigue el punto --- */
+  if (shipFollowing && tracePoints.length >= 2) {
+    const idx = clamp(sliderIndex, 0, tracePoints.length - 1);
+    let fr = null, pos;
+    if (useFit && fitCurve) { fr = computeFrenetOnFit(fitT(idx)); pos = fr ? fr.position : fitPosAt(fitT(idx)); }
+    else { fr = frenetAtIndex(idx); pos = tracePoints[idx].clone(); }
+    shipPosition.copy(pos);
+    if (fr) {
+      const m = new THREE.Matrix4().makeBasis(fr.T, fr.N, fr.B);
+      shipGroup.quaternion.slerp(new THREE.Quaternion().setFromRotationMatrix(m), 0.25);
+    }
+  } else if (controlMode === 'keyboard') {
+    if (keys.yawLeft)   targetYaw   += KB_YAW_SPEED   * dt;
+    if (keys.yawRight)  targetYaw   -= KB_YAW_SPEED   * dt;
+    if (keys.pitchUp)   targetPitch += KB_PITCH_SPEED * dt;
+    if (keys.pitchDown) targetPitch -= KB_PITCH_SPEED * dt;
+    if (keys.rollLeft)  targetRoll  += KB_ROLL_SPEED  * dt;
+    if (keys.rollRight) targetRoll  -= KB_ROLL_SPEED  * dt;
+    targetPitch = clamp(targetPitch, -Math.PI / 2.2, Math.PI / 2.2);
+    targetRoll  = clamp(targetRoll,  -Math.PI / 2.2, Math.PI / 2.2);
+    if (targetYaw >  Math.PI) targetYaw -= 2 * Math.PI;
+    if (targetYaw < -Math.PI) targetYaw += 2 * Math.PI;
+    tmpE.set(targetPitch, targetYaw, targetRoll, 'YXZ');
+    tmpQ.setFromEuler(tmpE);
+    shipGroup.quaternion.slerp(tmpQ, 0.25);
+  }
+
+  /* --- Física de avance --- */
+  if (!shipFollowing) {
+    if (cruising) shipSpeed = Math.min(shipSpeed + ACCEL * dt, MAX_SPEED);
+    else shipSpeed = Math.max(shipSpeed - FRICTION * dt, 0);
+    if (shipSpeed > MAX_SPEED) shipSpeed = MAX_SPEED;
+    forwardWorld.copy(forwardLocal).applyQuaternion(shipGroup.quaternion);
+    shipPosition.addScaledVector(forwardWorld, shipSpeed * dt);
+    shipGroup.position.set(
+      shipPosition.x + (Math.random() - 0.5) * currentShake,
+      shipPosition.y + (Math.random() - 0.5) * currentShake,
+      shipPosition.z + (Math.random() - 0.5) * currentShake);
+    if (shipSpeed > 0.05) pushTracePoint(shipPosition.clone());
+  } else {
+    shipGroup.position.copy(shipPosition); shipSpeed = 0;
+  }
+  FRENET_ANCHOR.position.copy(shipGroup.position);
+
+  /* --- Cámara de persecución --- */
+  if (opts.chase) {
+    const dx = shipPosition.x - prevShipPos.x, dy = shipPosition.y - prevShipPos.y, dz = shipPosition.z - prevShipPos.z;
+    camera.position.x += dx; camera.position.y += dy; camera.position.z += dz;
+    controls.target.x += dx; controls.target.y += dy; controls.target.z += dz;
+  }
+  prevShipPos.copy(shipPosition);
+
+  originHalo.rotation.y = t * 0.6; originHalo.rotation.x = t * 0.3;
+
+  const throttleFactor = cruising ? 1.5 : 0.8;
+  flames.forEach((f, i) => {
+    const phase = t * 18 + i * 1.7;
+    const jitter = 0.75 + 0.25 * Math.sin(phase) + 0.1 * Math.sin(phase * 3.3);
+    f.scale.set(jitter * throttleFactor, (0.6 + 0.4 * jitter) * throttleFactor, jitter * throttleFactor);
+    f.material.opacity = (0.6 + 0.35 * Math.sin(phase * 1.7)) * (cruising ? 1.0 : 0.7);
+  });
+
+  /* --- Escala de marcos según la distancia de cámara --- */
+  const camDist = camera.position.distanceTo(shipGroup.position);
+  const s = clamp(camDist / 9, 1, 10);
+  FRENET_ANCHOR.scale.setScalar(s); traceAnchor.scale.setScalar(s); traceMarker.scale.setScalar(s);
+  scene.fog.near = Math.max(50, camDist * 1.5);
+  scene.fog.far  = Math.max(200, camDist * 6.0 + 100);
+
+  /* --- HUD --- */
+  spdEl.textContent = shipSpeed.toFixed(2);
+  spdBar.style.width = (clamp(shipSpeed / MAX_SPEED, 0, 1) * 100).toFixed(0) + '%';
+
+  /* --- Perfil κ/τ (con límite de frecuencia) --- */
+  if (traceDirty && now - lastProfCompute > 180) { lastProfCompute = now; recomputeProfile(); }
+  if (profDirty) drawProfile();
+
+  /* --- Límite del espacio --- */
+  if (shipPosition.length() > 600 && !shipFollowing) {
+    shipSpeed = 0; setCruising(false);
+    shipPosition.setLength(599);
+    toast('Límite del espacio alcanzado: nave detenida', 'warn');
+  }
+
+  controls.update();
+  renderer.render(scene, camera);
+}
+
+/* ===================== ARRANQUE ===================== */
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  resizeProfile();
+});
+
+const mobile = window.innerWidth <= 760;
+toggleSidebar(!mobile);
+if (mobile) $('traceBar').classList.add('min');
+applyOpts();
+updateSliderMax();
+resizeProfile();
+ready = true;
+
+const ipAuto = detectarIP();
+if (ipAuto) conectar(ipAuto); else setConn('idle', 'esperando IP…');
+animate();
+</script>
+</body>
+</html>
