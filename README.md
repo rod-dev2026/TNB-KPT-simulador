@@ -22,7 +22,7 @@ Creado con un enfoque pedagógico de **aprendizaje encarnado** para las clases d
 
 
 
-* **Análisis Polinómico por Mínimos Cuadrados:** Ajuste de curvas espaciales ($r(t)$) de grado 2 a 6 con resolución matricial y cálculo de error RMS.
+* **Análisis Polinómico por Mínimos Cuadrados:** Ajuste de curvas espaciales de grado 2 a 6 con resolución matricial y cálculo de error RMS.
 
 
 * **Gestión de Datos:** Capacidad de guardar y cargar trayectorias en formato `JSON` para análisis posterior.
