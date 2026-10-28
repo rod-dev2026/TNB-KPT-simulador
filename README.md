@@ -4,7 +4,7 @@
 
 Herramienta interactiva 3D desarrollada con para visualizar el **marco de Frenet-Serret ($T, N, B$)**, la curvatura ($\kappa$), el radio de curvatura ($R$) y la torsión ($\tau$) de una trayectoria espacial en tiempo real, utilizando telemetría de hardware (ESP32 + MPU6050) o control por teclado.
 
-Creado con un enfoque pedagógico de **aprendizaje encarnado** para las clases de Cálculo Vectorial y Ciencias Básicas.
+Creado con un enfoque pedagógico de **aprendizaje encarnado** para las clases de Cálculo Vectorial.
 
 ---
 
